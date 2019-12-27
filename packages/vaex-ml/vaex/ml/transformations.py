@@ -578,8 +578,16 @@ class RobustScaler(Transformer):
 @register
 @generate.register
 class BayesianTargetEncoder(Transformer):
-    '''
+    '''Encode categorical variables with a Bayesian Target Encoder.
 
+    The categories are encoded by the mean of their target value,
+    which is adjusted by the global mean value of the target variable
+    using a Bayesian schema. For a larger `weight` value, the target
+    encodings are smoothed toward the global mean, while for a
+    `weight` of 0, the encodings are just the mean target value per
+    class.
+
+    Reference: https://www.wikiwand.com/en/Bayes_estimator#/Practical_example_of_Bayes_estimators
 
     Example:
 
@@ -587,8 +595,8 @@ class BayesianTargetEncoder(Transformer):
     >>> import vaex.ml
     >>> df = vaex.from_arrays(x=['a', 'a', 'a', 'a', 'b', 'b', 'b', 'b'],
     ...                       y=[1, 1, 1, 0, 0, 0, 0, 1])
-    >>> mean_encoder = vaex.ml.BayesianTargetEncoder(features=['x'], weight=4)
-    >>> mean_encoder.fit_transform(df, 'y')
+    >>> target_encoder = vaex.ml.BayesianTargetEncoder(features=['x'], weight=4)
+    >>> target_encoder.fit_transform(df, 'y')
       #  x      y    mean_encoded_x
       0  a      1             0.625
       1  a      1             0.625
