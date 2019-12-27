@@ -275,8 +275,8 @@ def test_bayesian_target_encoder(tmpdir):
     df_test = vaex.from_arrays(x1=['a', 'b', 'c'],
                                x2=['p', 'q', 'w'])
 
-    target_encoder = vaex.ml.BayesianTargetEncoder(features=['x1', 'x2'], unseen='zero', prefix='enc_', weight=10)
-    df_train = target_encoder.fit_transform(df_train, 'y')
+    target_encoder = vaex.ml.BayesianTargetEncoder(target='y', features=['x1', 'x2'], unseen='zero', prefix='enc_', weight=10)
+    df_train = target_encoder.fit_transform(df_train)
 
     assert df_train.enc_x1.tolist() == [0.6, 0.6, 0.6, 0.6, 0.6, 0.4, 0.4, 0.4, 0.4, 0.4]
     assert df_train.enc_x2.tolist() == [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]

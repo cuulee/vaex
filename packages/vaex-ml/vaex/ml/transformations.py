@@ -607,22 +607,23 @@ class BayesianTargetEncoder(Transformer):
       6  b      0             0.375
       7  b      1             0.375
     '''
+    target = traitlets.Unicode(help='The name of the column containing the target variable.')
     weight = traitlets.CFloat(default_value=100, allow_none=False, help='Weight to be applied to the mean encodings (smoothing parameter).')
     prefix = traitlets.Unicode(default_value='mean_encoded_', help=help_prefix)
     unseen = traitlets.Enum(values=['zero', 'nan'], default_value='nan', help='Strategy to deal with unseen values.')
     mappings_ = traitlets.Dict()
 
-    def fit(self, df, target):
+    def fit(self, df):
         '''Fit a MeanTargetEncoder to the DataFrame.
 
         :param df: A vaex DataFrame
-        :param target: The name of the column containing the target variable.
         '''
+
         # The global target mean - used for the smoothing
-        global_target_mean = df[target].mean().item()
+        global_target_mean = df[self.target].mean().item()
 
         for feature in self.features:
-            agg = df.groupby(feature, agg={'count': vaex.agg.count(), 'mean': vaex.agg.mean(target)})
+            agg = df.groupby(feature, agg={'count': vaex.agg.count(), 'mean': vaex.agg.mean(self.target)})
             agg['encoding'] = (agg['count'] * agg['mean'] + self.weight * global_target_mean) / (agg['count'] + self.weight)
             self.mappings_[feature] = {value[feature]: value['encoding'] for index, value in agg.iterrows()}
 
@@ -643,14 +644,3 @@ class BayesianTargetEncoder(Transformer):
                                            default_value=default_value,
                                            allow_missing=True)
         return copy
-
-    def fit_transform(self, df, target):
-        '''Fit and apply the transformer to the supplied DataFrame.
-
-        :param df: A vaex DataFrame.
-        :param target: The name of the column containing the target variable.
-
-        :returns copy: A shallow copy of the DataFrame that includes the transformations.
-        '''
-        self.fit(df=df, target=target)
-        return self.transform(df=df)
