@@ -573,3 +573,76 @@ class RobustScaler(Transformer):
                 expr = expr / self.scale_[i]
             copy[name] = expr
         return copy
+
+
+@register
+@generate.register
+class BayesianTargetEncoder(Transformer):
+    '''
+
+
+    Example:
+
+    >>> import vaex
+    >>> import vaex.ml
+    >>> df = vaex.from_arrays(x=['a', 'a', 'a', 'a', 'b', 'b', 'b', 'b'],
+    ...                       y=[1, 1, 1, 0, 0, 0, 0, 1])
+    >>> mean_encoder = vaex.ml.BayesianTargetEncoder(features=['x'], weight=4)
+    >>> mean_encoder.fit_transform(df, 'y')
+      #  x      y    mean_encoded_x
+      0  a      1             0.625
+      1  a      1             0.625
+      2  a      1             0.625
+      3  a      0             0.625
+      4  b      0             0.375
+      5  b      0             0.375
+      6  b      0             0.375
+      7  b      1             0.375
+    '''
+    weight = traitlets.CFloat(default_value=100, allow_none=False, help='Weight to be applied to the mean encodings (smoothing parameter).')
+    prefix = traitlets.Unicode(default_value='mean_encoded_', help=help_prefix)
+    unseen = traitlets.Enum(values=['zero', 'nan'], default_value='nan', help='Strategy to deal with unseen values.')
+    mappings_ = traitlets.Dict()
+
+    def fit(self, df, target):
+        '''Fit a MeanTargetEncoder to the DataFrame.
+
+        :param df: A vaex DataFrame
+        :param target: The name of the column containing the target variable.
+        '''
+        # The global target mean - used for the smoothing
+        global_target_mean = df[target].mean().item()
+
+        for feature in self.features:
+            agg = df.groupby(feature, agg={'count': vaex.agg.count(), 'mean': vaex.agg.mean(target)})
+            agg['encoding'] = (agg['count'] * agg['mean'] + self.weight * global_target_mean) / (agg['count'] + self.weight)
+            self.mappings_[feature] = {value[feature]: value['encoding'] for index, value in agg.iterrows()}
+
+    def transform(self, df):
+        '''Transform a DataFrame with a fitted MeanTargetEncoder.
+
+        :param df: A vaex DataFrame.
+        :return: A shallow copy of the DataFrame that includes the encodings.
+        :rtype: DataFrame
+        '''
+        copy = df.copy()
+        default_value = {'zero': 0., 'nan': np.nan}[self.unseen]
+        for feature in self.features:
+            name = self.prefix + feature
+            copy[name] = copy[feature].map(self.mappings_[feature],
+                                           nan_value=np.nan,
+                                           missing_value=np.nan,
+                                           default_value=default_value,
+                                           allow_missing=True)
+        return copy
+
+    def fit_transform(self, df, target):
+        '''Fit and apply the transformer to the supplied DataFrame.
+
+        :param df: A vaex DataFrame.
+        :param target: The name of the column containing the target variable.
+
+        :returns copy: A shallow copy of the DataFrame that includes the transformations.
+        '''
+        self.fit(df=df, target=target)
+        return self.transform(df=df)
