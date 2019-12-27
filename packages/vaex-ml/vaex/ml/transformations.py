@@ -583,7 +583,7 @@ class WeightOfEvidenceEncoder(Transformer):
     Weight of Evidence measures how well a particular feature supports
     the given hypothesis (i.e. the target variable). With this
     encoder, each category in a categorical feature is encoded by its
-    "strenght" i.e. Weight of Evidence value.
+    "strength" i.e. Weight of Evidence value.
 
     Reference: https://www.listendata.com/2015/03/weight-of-evidence-woe-and-information.html
 
