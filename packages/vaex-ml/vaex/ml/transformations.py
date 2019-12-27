@@ -573,3 +573,68 @@ class RobustScaler(Transformer):
                 expr = expr / self.scale_[i]
             copy[name] = expr
         return copy
+
+
+@register
+@generate.register
+class WeightOfEvidenceEncoder(Transformer):
+    '''Encode categorical variables with a Weight of Evidence Encoder.
+
+    Weight of Evidence measures how well a particular feature supports
+    the given hypothesis (i.e. the target variable). With this
+    encoder, each category in a categorical feature is encoded by its
+    "strenght" i.e. Weight of Evidence value.
+
+    Reference: https://www.listendata.com/2015/03/weight-of-evidence-woe-and-information.html
+
+    Example:
+
+    >>> import vaex
+    >>> import vaex.ml
+    >>> df = vaex.from_arrays(x=['a', 'a', 'b', 'b', 'b', 'c', 'c'],
+    ...                       y=[1, 1, 0, 0, 1, 1, 0])
+    >>> woe_encoder = vaex.ml.WeightOfEvidenceEncoder(target='y', features=['x'])
+    >>> woe_encoder.fit_transform(df)
+      #  x      y    mean_encoded_x
+      0  a      1         13.8155
+      1  a      1         13.8155
+      2  b      0         -0.693147
+      3  b      0         -0.693147
+      4  b      1         -0.693147
+      5  c      1          0
+      6  c      0          0
+    '''
+    target = traitlets.Unicode(help='The name of the column containing the target variable.')
+    prefix = traitlets.Unicode(default_value='woe_encoded_', help=help_prefix)
+    unseen = traitlets.Enum(values=['zero', 'nan'], default_value='nan', help='Strategy to deal with unseen values.')
+    mappings_ = traitlets.Dict()
+
+    def fit(self, df):
+        '''Fit a WeightOfEvidenceEncoder to the DataFrame.
+
+        :param df: A vaex DataFrame
+        '''
+        for feature in self.features:
+            agg = df.groupby(feature, agg={'positive': vaex.agg.mean(self.target)})
+            agg['negative'] = 1 - agg.positive
+            agg['negative'] = agg.func.where(agg['negative'] == 0, 0.000001, agg['negative'])
+            agg['woe'] = np.log(agg.positive/agg.negative)
+            self.mappings_[feature] = {value[feature]: value['woe'] for index, value in agg.iterrows()}
+
+    def transform(self, df):
+        '''Transform a DataFrame with a fitted WeightOfEvidenceEncoder.
+
+        :param df: A vaex DataFrame.
+        :return: A shallow copy of the DataFrame that includes the encodings.
+        :rtype: DataFrame
+        '''
+        copy = df.copy()
+        default_value = {'zero': 0., 'nan': np.nan}[self.unseen]
+        for feature in self.features:
+            name = self.prefix + feature
+            copy[name] = copy[feature].map(self.mappings_[feature],
+                                           nan_value=np.nan,
+                                           missing_value=np.nan,
+                                           default_value=default_value,
+                                           allow_missing=True)
+        return copy

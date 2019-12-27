@@ -266,3 +266,20 @@ def test_robust_scaler():
     scaler_vaex = vaex.ml.RobustScaler(features=features, percentile_range=(12, 175))
     with pytest.raises(Exception):
         result_vaex = scaler_vaex.fit_transform(ds)
+
+
+def test_weight_of_evidence_encoder(tmpdir):
+    df_train = vaex.from_arrays(x=['a', 'a',  'b', 'b', 'b', 'b', 'c', 'c'],
+                                y=[1, 1, 1, 1, 1, 0, 0, 1])
+    df_test = vaex.from_arrays(x=['a', 'b', 'c', 'd'])
+
+    trans = vaex.ml.WeightOfEvidenceEncoder(target='y', features=['x'])
+    df_train = trans.fit_transform(df_train)
+    np.testing.assert_array_almost_equal(df_train.woe_encoded_x.values,
+                                         [13.815510, 13.815510, 1.098612, 1.098612, 1.098612, 1.098612, 0., 0.])
+    assert trans.mappings_ == {'x': {'a': 13.815510557964274, 'b': 1.0986122886681098, 'c': 0.0}}
+
+    state_path = str(tmpdir.join('state.json'))
+    df_train.state_write(state_path)
+    df_test.state_load(state_path)
+    np.testing.assert_array_almost_equal(df_test.woe_encoded_x.values, [13.815510, 1.098612, 0, np.nan])
