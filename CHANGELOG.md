@@ -12,6 +12,8 @@
    * Fix
       * IncrementalPredictor: epochs now iterate over the whole DataFrame instead on a batch level [#523](https://github.com/vaexio/vaex/pull/523)
       * rename `vaex.ml.sklearn.SKLearnPredictor` to `vaex.ml.sklearn.Predictor` [#524](https://github.com/vaexio/vaex/pull/524)
+   * Features
+      * CycleTransformer [#532](https://github.com/vaexio/vaex/pull/532)
 
 # vaex 2.5.0 (2019-12-16)
 
